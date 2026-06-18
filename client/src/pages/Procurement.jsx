@@ -38,6 +38,7 @@ export default function Procurement({ project }) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showPageHistoryModal, setShowPageHistoryModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [newRequest, setNewRequest] = useState({
     materialName: '',
@@ -45,6 +46,26 @@ export default function Procurement({ project }) {
     vendor: '',
     unitRate: ''
   });
+
+  const getGlobalHistory = () => {
+    const list = [];
+    requests.forEach(req => {
+      if (req.history && Array.isArray(req.history)) {
+        req.history.forEach(h => {
+          list.push({
+            ...h,
+            materialName: req.material,
+            quantity: req.quantity,
+            unit: req.unit,
+            cost: req.cost,
+            vendor: req.vendor,
+            reqId: req.id
+          });
+        });
+      }
+    });
+    return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+  };
 
   useEffect(() => {
     if (location.state && location.state.openModal) {
@@ -133,13 +154,22 @@ export default function Procurement({ project }) {
           <h2 className="text-base font-extrabold text-slate-800">Procurement Workflow</h2>
           <p className="text-[10px] text-slate-400 font-medium">Coordinate orders and verify supplier deliveries through visual columns.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          <span>New Requisition</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowPageHistoryModal(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-premium transition-colors"
+          >
+            <Clock className="h-4 w-4 text-slate-500" />
+            <span>Workflow History</span>
+          </button>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Requisition</span>
+          </button>
+        </div>
       </div>
 
       {/* Kanban Board Layout */}
@@ -370,6 +400,87 @@ export default function Procurement({ project }) {
                 className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-750 shadow-premium transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Page History Modal */}
+      {showPageHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-100 bg-white p-6 shadow-dropdown flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-150">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Procurement Workflow History</h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Timeline of all requisition actions and delivery events</p>
+              </div>
+              <button 
+                onClick={() => setShowPageHistoryModal(false)}
+                className="text-slate-450 hover:text-slate-700 text-sm font-bold px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scrollable vertical timeline */}
+            <div className="mt-4 flex-1 overflow-y-auto pr-1 py-2 space-y-6 relative min-h-[300px]">
+              {getGlobalHistory().length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                  <Clock className="h-8 w-8 text-slate-350 mb-2 stroke-[1.5]" />
+                  <p className="text-xs font-semibold">No workflow history logs found.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Vertical dotted timeline line */}
+                  <div className="absolute left-3 top-2 bottom-4 w-0.5 bg-slate-100 border-l border-dashed border-slate-350"></div>
+                  
+                  {getGlobalHistory().map((event, index) => {
+                    const statusName = statusNames[event.status] || event.status;
+                    const colorClass = statusColors[event.status] || 'bg-slate-400 border-slate-200';
+                    
+                    return (
+                      <div key={index} className="relative pl-8 flex flex-col gap-1.5">
+                        {/* Timeline dot */}
+                        <div className={`absolute left-1.5 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-white shadow-md ${colorClass.split(' ')[0]}`} />
+                        
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">
+                                {statusName}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-700">
+                                {event.materialName}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              Quantity: <span className="font-semibold text-slate-700">{event.quantity.toLocaleString()} {event.unit}</span> | Vendor: <span className="font-semibold text-slate-700">{event.vendor}</span>
+                            </p>
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 shrink-0">
+                            {event.date}
+                          </span>
+                        </div>
+                        
+                        <div className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                          <User className="h-3 w-3 text-slate-400" />
+                          <span>Action by <span className="font-semibold text-slate-700">{event.user}</span></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowPageHistoryModal(false)}
+                className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-750 shadow-premium transition-colors"
+              >
+                Close History
               </button>
             </div>
           </div>
