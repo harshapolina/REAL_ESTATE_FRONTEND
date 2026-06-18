@@ -28,6 +28,8 @@ export default function DailyTracking({ project }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [showAlertsModal, setShowAlertsModal] = useState(false);
   const [newEntry, setNewEntry] = useState({
     todayCost: '',
     materialsUsed: '',
@@ -44,20 +46,35 @@ export default function DailyTracking({ project }) {
     issueText: ''
   });
 
-  const fetchLogs = async () => {
+  const fetchLogsAndAlerts = async () => {
     try {
       setLoading(true);
-      const data = await api.getDailyTracking(project.id);
-      setLogs(data);
+      const [logsData, alertsData] = await Promise.all([
+        api.getDailyTracking(project.id),
+        api.getAlerts(project.id)
+      ]);
+      setLogs(logsData);
+      setAlerts(alertsData);
+      if (alertsData && alertsData.length > 0) {
+        setShowAlertsModal(true);
+      }
     } catch (err) {
-      console.error("Error loading daily tracking logs:", err);
+      console.error("Error loading daily tracking logs or alerts:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDismissAlert = (alertId) => {
+    const remainingAlerts = alerts.filter(a => a.id !== alertId);
+    setAlerts(remainingAlerts);
+    if (remainingAlerts.length === 0) {
+      setShowAlertsModal(false);
+    }
+  };
+
   useEffect(() => {
-    fetchLogs();
+    fetchLogsAndAlerts();
   }, [project.id]);
 
   const handleCreateEntry = async (e) => {
@@ -118,7 +135,7 @@ export default function DailyTracking({ project }) {
         bricksUsed: '',
         issueText: ''
       });
-      fetchLogs();
+      fetchLogsAndAlerts();
     } catch (err) {
       console.error(err);
     }
@@ -555,6 +572,103 @@ export default function DailyTracking({ project }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pop-up Alerts Modal */}
+      {showAlertsModal && alerts.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-100 bg-white p-6 shadow-dropdown flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-150">
+              <div className="flex items-center gap-2">
+                <AlertOctagon className="h-5 w-5 text-red-500 animate-pulse" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Critical Project Alerts</h3>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Please review and acknowledge these alerts to proceed</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAlertsModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 rounded-full hover:bg-slate-50 transition-colors"
+                title="Dismiss all and close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List of active alerts */}
+            <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1 py-1">
+              {alerts.map((alert) => {
+                let colorClass = "bg-blue-50/70 border-blue-100 text-blue-800";
+                let typeLabel = "Info";
+                if (alert.type === "Critical" || alert.type === "Danger") {
+                  colorClass = "bg-red-50/70 border-red-100 text-red-800";
+                  typeLabel = "Critical";
+                } else if (alert.type === "Warning") {
+                  colorClass = "bg-amber-50/70 border-amber-100 text-amber-800";
+                  typeLabel = "Warning";
+                } else if (alert.type === "Success") {
+                  colorClass = "bg-green-50/70 border-green-100 text-green-800";
+                  typeLabel = "Success";
+                }
+
+                return (
+                  <div 
+                    key={alert.id} 
+                    className={`flex items-start justify-between gap-3 p-4 rounded-xl border ${colorClass} transition-all duration-200 hover:scale-[1.01]`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 shrink-0">
+                        {alert.type === "Success" ? (
+                          <Sparkles className="h-4 w-4" />
+                        ) : (
+                          <AlertOctagon className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[8px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-white/60">
+                            {typeLabel}
+                          </span>
+                          <span className="text-xs font-bold leading-tight">
+                            {alert.title}
+                          </span>
+                        </div>
+                        <p className="text-[10px] opacity-90 font-medium">
+                          {alert.desc}
+                        </p>
+                        <p className="text-[8px] opacity-75 font-semibold">
+                          Date: {alert.date}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Wrong / Dismiss close button */}
+                    <button
+                      onClick={() => handleDismissAlert(alert.id)}
+                      className="shrink-0 rounded-full p-1 hover:bg-black/5 transition-colors text-slate-500 hover:text-slate-800 flex items-center justify-center font-bold"
+                      title="Dismiss alert"
+                    >
+                      <span className="text-sm leading-none px-1">✕</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-slate-100 flex justify-between items-center">
+              <span className="text-[9px] font-bold text-slate-400">
+                {alerts.length} alert{alerts.length > 1 ? 's' : ''} remaining
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAlertsModal(false)}
+                className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-bold text-white hover:bg-slate-700 shadow-premium transition-colors"
+              >
+                Close Popup
+              </button>
+            </div>
           </div>
         </div>
       )}
