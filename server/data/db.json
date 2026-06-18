@@ -441,7 +441,11 @@
         "status": "Optimal",
         "unitRate": 450,
         "plannedCost": 4500000,
-        "actualCost": 8325000
+        "actualCost": 8325000,
+        "ph-1": 200,
+        "ph-2": 400,
+        "ph-3": 400,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-2",
@@ -454,7 +458,11 @@
         "status": "Optimal",
         "unitRate": 65000,
         "plannedCost": 9750000,
-        "actualCost": 72800000
+        "actualCost": 72800000,
+        "ph-1": 20,
+        "ph-2": 50,
+        "ph-3": 30,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-3",
@@ -467,7 +475,11 @@
         "status": "Low Stock",
         "unitRate": 8000,
         "plannedCost": 6400000,
-        "actualCost": 5600000
+        "actualCost": 5600000,
+        "ph-1": 100,
+        "ph-2": 250,
+        "ph-3": 150,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-4",
@@ -480,7 +492,11 @@
         "status": "Optimal",
         "unitRate": 15,
         "plannedCost": 1800000,
-        "actualCost": 1500000
+        "actualCost": 1500000,
+        "ph-1": 10000,
+        "ph-2": 25000,
+        "ph-3": 15000,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-5",
@@ -493,7 +509,11 @@
         "status": "Optimal",
         "unitRate": 10000,
         "plannedCost": 4000000,
-        "actualCost": 3500000
+        "actualCost": 3500000,
+        "ph-1": 60,
+        "ph-2": 150,
+        "ph-3": 90,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-6",
@@ -506,7 +526,11 @@
         "status": "Optimal",
         "unitRate": 1500000,
         "plannedCost": 1500000,
-        "actualCost": 1500000
+        "actualCost": 1500000,
+        "ph-1": 0,
+        "ph-2": 0,
+        "ph-3": 1,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-7",
@@ -519,7 +543,11 @@
         "status": "To Order",
         "unitRate": 1800000,
         "plannedCost": 1800000,
-        "actualCost": 0
+        "actualCost": 0,
+        "ph-1": 0,
+        "ph-2": 0,
+        "ph-3": 1,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-8",
@@ -532,7 +560,11 @@
         "status": "Optimal",
         "unitRate": 250,
         "plannedCost": 1250000,
-        "actualCost": 250000
+        "actualCost": 250000,
+        "ph-1": 0,
+        "ph-2": 0,
+        "ph-3": 5000,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-9",
@@ -545,7 +577,11 @@
         "status": "Optimal",
         "unitRate": 120,
         "plannedCost": 4800000,
-        "actualCost": 1200000
+        "actualCost": 1200000,
+        "ph-1": 0,
+        "ph-2": 0,
+        "ph-3": 40000,
+        "ph-1781703877401": 0
       },
       {
         "id": "m-1781681418240",

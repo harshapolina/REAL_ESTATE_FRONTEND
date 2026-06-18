@@ -33,6 +33,8 @@ export default function ProjectPlanning({ project, setProject }) {
     unitRate: ''
   });
 
+  const [newMatPhases, setNewMatPhases] = useState({});
+
   const [newPhase, setNewPhase] = useState({
     name: '',
     targetArea: '',
@@ -111,25 +113,45 @@ export default function ProjectPlanning({ project, setProject }) {
 
   const handleAddMaterial = async (e) => {
     e.preventDefault();
-    if (!newMat.name || !newMat.planned || !newMat.unitRate) return;
+    if (!newMat.name || !newMat.unitRate) return;
+
+    let totalPlanned = 0;
+    const phasePayload = {};
+
+    if (phases.length > 0) {
+      phases.forEach(phase => {
+        const qty = Number(newMatPhases[phase.id]) || 0;
+        phasePayload[phase.id] = qty;
+        totalPlanned += qty;
+      });
+    } else {
+      if (!newMat.planned) return;
+      totalPlanned = Number(newMat.planned) || 0;
+    }
 
     try {
       const created = await api.addMaterial(project.id, {
         name: newMat.name,
         unit: newMat.unit,
-        planned: Number(newMat.planned),
+        planned: totalPlanned,
         unitRate: Number(newMat.unitRate),
         purchased: 0,
-        used: 0
+        used: 0,
+        ...phasePayload
       });
       setMaterials([...materials, created]);
       setShowAddMaterial(false);
       setNewMat({ name: '', unit: 'Bags', planned: '', unitRate: '' });
+      setNewMatPhases({});
+      if (setProject) {
+        const updatedProj = await api.getProjectById(project.id);
+        setProject(updatedProj);
+      }
     } catch (err) {
       console.error(err);
     }
   };
-
+ 
   const handleUpdateMaterialRate = async (id, rate) => {
     try {
       const updated = await api.updateMaterial(project.id, id, { unitRate: Number(rate) });
@@ -138,6 +160,52 @@ export default function ProjectPlanning({ project, setProject }) {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleUpdateMaterialPhaseQty = async (materialId, phaseId, newQtyVal) => {
+    const qty = Number(newQtyVal) || 0;
+    const targetMat = materials.find(m => m.id === materialId);
+    if (!targetMat) return;
+
+    const updatedPhases = { ...targetMat, [phaseId]: qty };
+    const newTotal = phases.reduce((sum, phase) => {
+      const pQty = updatedPhases[phase.id] !== undefined ? updatedPhases[phase.id] : 0;
+      return sum + pQty;
+    }, 0);
+
+    try {
+      const updated = await api.updateMaterial(project.id, materialId, {
+        [phaseId]: qty,
+        planned: newTotal
+      });
+      if (updated) {
+        setMaterials(materials.map(m => m.id === materialId ? updated : m));
+        if (setProject) {
+          const updatedProj = await api.getProjectById(project.id);
+          setProject(updatedProj);
+        }
+      }
+    } catch (err) {
+      console.error("Error updating phase quantity:", err);
+    }
+  };
+
+  const handleUpdateMaterialTotalQty = async (materialId, newTotalVal) => {
+    const total = Number(newTotalVal) || 0;
+    try {
+      const updated = await api.updateMaterial(project.id, materialId, {
+        planned: total
+      });
+      if (updated) {
+        setMaterials(materials.map(m => m.id === materialId ? updated : m));
+        if (setProject) {
+          const updatedProj = await api.getProjectById(project.id);
+          setProject(updatedProj);
+        }
+      }
+    } catch (err) {
+      console.error("Error updating total quantity:", err);
     }
   };
 
@@ -482,6 +550,11 @@ export default function ProjectPlanning({ project, setProject }) {
                 <th className="py-2.5 px-4 font-bold text-[10px] uppercase w-12 text-center">#</th>
                 <th className="py-2.5 px-3 font-bold text-[10px] uppercase min-w-[150px]">Material</th>
                 <th className="py-2.5 px-3 font-bold text-[10px] uppercase w-20">Unit</th>
+                {phases.map((phase) => (
+                  <th key={phase.id} className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-28 max-w-[120px] truncate">
+                    {phase.name} (Qty)
+                  </th>
+                ))}
                 <th className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-36">Total Planned Qty</th>
                 <th className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-24">Unit Rate</th>
                 <th className="py-2.5 px-4 font-bold text-[10px] uppercase text-right w-36">Total Cost</th>
@@ -491,7 +564,7 @@ export default function ProjectPlanning({ project, setProject }) {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-400">Loading materials baseline matrix...</td>
+                  <td colSpan={7 + phases.length} className="py-8 text-center text-slate-400">Loading materials baseline matrix...</td>
                 </tr>
               ) : materials.length > 0 ? (
                 materials.map((mat, idx) => (
@@ -499,8 +572,30 @@ export default function ProjectPlanning({ project, setProject }) {
                     <td className="py-2 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
                     <td className="py-2 px-3 font-bold text-slate-800">{mat.name}</td>
                     <td className="py-2 px-3 text-slate-500">{mat.unit}</td>
-                    <td className="py-2 px-3 text-right font-semibold">
-                      {Number(mat.planned || 0).toLocaleString()}
+                    {phases.map((phase) => {
+                      const phaseQty = mat[phase.id] !== undefined ? mat[phase.id] : 0;
+                      return (
+                        <td key={phase.id} className="py-2 px-3 text-right">
+                          <input 
+                            type="number"
+                            value={phaseQty}
+                            onChange={(e) => handleUpdateMaterialPhaseQty(mat.id, phase.id, e.target.value)}
+                            className="w-16 rounded border border-slate-200 px-1 py-0.5 text-right text-xs focus:border-primary focus:outline-none"
+                          />
+                        </td>
+                      );
+                    })}
+                    <td className="py-2 px-3 text-right">
+                      {phases.length > 0 ? (
+                        <span className="font-semibold text-slate-700">{Number(mat.planned || 0).toLocaleString()}</span>
+                      ) : (
+                        <input 
+                          type="number"
+                          value={mat.planned}
+                          onChange={(e) => handleUpdateMaterialTotalQty(mat.id, e.target.value)}
+                          className="w-16 rounded border border-slate-200 px-1 py-0.5 text-right text-xs focus:border-primary focus:outline-none"
+                        />
+                      )}
                     </td>
                     <td className="py-2 px-3 text-right">
                       <input 
@@ -525,7 +620,7 @@ export default function ProjectPlanning({ project, setProject }) {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-400">No baseline materials configured yet.</td>
+                  <td colSpan={7 + phases.length} className="py-8 text-center text-slate-400">No baseline materials configured yet.</td>
                 </tr>
               )}
             </tbody>
@@ -533,7 +628,7 @@ export default function ProjectPlanning({ project, setProject }) {
             {!loading && materials.length > 0 && (
               <tfoot>
                 <tr className="bg-slate-50/50 border-t-2 border-slate-200 font-bold text-slate-800">
-                  <td colSpan="5" className="py-3 px-4 text-left font-extrabold text-[10px] uppercase text-slate-400 tracking-wider">Total Estimated Baseline Cost</td>
+                  <td colSpan={5 + phases.length} className="py-3 px-4 text-left font-extrabold text-[10px] uppercase text-slate-400 tracking-wider">Total Estimated Baseline Cost</td>
                   <td className="py-3 px-4 text-right font-black text-primary text-sm">{formatRupees(totalEstimatedCost)}</td>
                   <td></td>
                 </tr>
@@ -562,8 +657,8 @@ export default function ProjectPlanning({ project, setProject }) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3.5">
-                <div>
+              <div className={phases.length > 0 ? "block" : "grid grid-cols-2 gap-3.5"}>
+                <div className={phases.length > 0 ? "mb-3.5" : ""}>
                   <label className="block text-[10px] font-bold text-slate-700 mb-1">Unit</label>
                   <select
                     value={newMat.unit}
@@ -582,18 +677,41 @@ export default function ProjectPlanning({ project, setProject }) {
                     <option>SFT</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Planned Qty</label>
-                  <input 
-                    type="number" 
-                    required
-                    value={newMat.planned}
-                    onChange={e => setNewMat({...newMat, planned: e.target.value})}
-                    placeholder="e.g. 1000"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
-                  />
-                </div>
+                {phases.length === 0 && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Planned Qty</label>
+                    <input 
+                      type="number" 
+                      required
+                      value={newMat.planned}
+                      onChange={e => setNewMat({...newMat, planned: e.target.value})}
+                      placeholder="e.g. 1000"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                )}
               </div>
+
+              {phases.length > 0 && (
+                <div className="border border-slate-100 rounded-lg p-3 bg-slate-50/50 space-y-2 max-h-36 overflow-y-auto">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Phase Breakdown Qty</span>
+                  {phases.map((phase) => (
+                    <div key={phase.id} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-600 truncate max-w-[160px] font-medium">{phase.name}</span>
+                      <input 
+                        type="number"
+                        placeholder="Qty"
+                        value={newMatPhases[phase.id] || ''}
+                        onChange={(e) => setNewMatPhases({
+                          ...newMatPhases,
+                          [phase.id]: e.target.value
+                        })}
+                        className="w-24 rounded border border-slate-200 px-2 py-1 text-xs text-right focus:border-primary focus:outline-none bg-white font-medium"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-700 mb-1">Estimated Unit Rate (₹)</label>
@@ -610,7 +728,10 @@ export default function ProjectPlanning({ project, setProject }) {
               <div className="mt-6 flex justify-end gap-3 pt-2">
                 <button 
                   type="button"
-                  onClick={() => setShowAddMaterial(false)}
+                  onClick={() => {
+                    setShowAddMaterial(false);
+                    setNewMatPhases({});
+                  }}
                   className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Cancel

@@ -303,6 +303,35 @@ function loadDb() {
       for (const projectId in db.materials) {
         recalculateActualCosts(projectId);
       }
+
+      // Self-heal: Sync phase-wise planned quantities from projects[idx].plannedMaterials to materials[projectId]
+      if (db.projects && db.materials) {
+        db.projects.forEach(project => {
+          const pMats = project.plannedMaterials || [];
+          const mats = db.materials[project.id] || [];
+          mats.forEach(mat => {
+            const pMat = pMats.find(pm => pm.name.toLowerCase() === mat.name.toLowerCase());
+            if (pMat) {
+              if (project.phases && project.phases.length > 0) {
+                project.phases.forEach((phase, index) => {
+                  const phaseKey = phase.id;
+                  const fallbackKey = `ph${index + 1}`;
+                  if (mat[phaseKey] === undefined) {
+                    if (pMat[phaseKey] !== undefined) {
+                      mat[phaseKey] = pMat[phaseKey];
+                    } else if (pMat[fallbackKey] !== undefined) {
+                      mat[phaseKey] = pMat[fallbackKey];
+                    } else {
+                      mat[phaseKey] = 0;
+                    }
+                  }
+                });
+              }
+            }
+          });
+        });
+      }
+      
       saveDb();
     } else {
       saveDb();
