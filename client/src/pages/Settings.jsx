@@ -1,24 +1,86 @@
-import React, { useState } from 'react';
-import { Settings, Save, AlertTriangle, ShieldCheck, Mail, Bell, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Save, AlertTriangle, ShieldCheck, Mail, Bell, Shield, Sliders, Info, Clock, CheckSquare, Layers } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function SettingsPage({ project }) {
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('materials'); // 'materials' | 'general' | 'advanced'
+  
   const [thresholds, setThresholds] = useState({
-    cementLow: 200,
-    steelLow: 15,
     budgetWarning: 90,
     costOverrunLimit: 10
   });
+
+  const [materialThresholds, setMaterialThresholds] = useState({});
+
   const [notifyChannels, setNotifyChannels] = useState({
     email: true,
     sms: false,
     system: true
   });
+
+  // Advanced settings states ("see more settings")
+  const [advancedSettings, setAdvancedSettings] = useState({
+    currency: 'INR (₹)',
+    workHoursGoal: 9.0,
+    sensitivity: 'Medium',
+    autoDailySummary: true,
+    autoWeeklyBudget: false,
+    maintenanceMode: false
+  });
+
   const [success, setSuccess] = useState(false);
 
-  const handleSaveSettings = (e) => {
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        setLoading(true);
+        const data = await api.getMaterials(project.id);
+        setMaterials(data);
+        
+        // Load custom thresholds
+        const customAlerts = {};
+        data.forEach(m => {
+          customAlerts[m.id] = m.lowStockThreshold !== undefined ? m.lowStockThreshold : (m.name.toLowerCase().includes('cement') ? 200 : m.name.toLowerCase().includes('steel') ? 15 : 100);
+        });
+        setMaterialThresholds(customAlerts);
+      } catch (err) {
+        console.error("Error loading settings materials:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMaterials();
+  }, [project.id]);
+
+  const handleSaveSettings = async (e) => {
     e.preventDefault();
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+    try {
+      // 1. Update all materials thresholds in backend
+      await Promise.all(
+        materials.map(mat => {
+          const customVal = materialThresholds[mat.id];
+          return api.updateMaterial(project.id, mat.id, {
+            lowStockThreshold: Number(customVal) || 0
+          });
+        })
+      );
+      
+      // 2. Persist local configurations simulation
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error("Error saving thresholds:", err);
+      alert("Error saving some material thresholds.");
+    }
+  };
+
+  const handleMaterialThresholdChange = (id, val) => {
+    setMaterialThresholds(prev => ({
+      ...prev,
+      [id]: val
+    }));
   };
 
   return (
@@ -30,100 +92,231 @@ export default function SettingsPage({ project }) {
         <p className="text-[10px] text-slate-400 font-medium">Configure project configurations, warning thresholds, and notification alerts.</p>
       </div>
 
+      {/* Tabs Menu */}
+      <div className="flex border-b border-slate-200 text-xs font-bold text-slate-400 gap-6">
+        <button 
+          type="button"
+          onClick={() => setActiveTab('materials')}
+          className={`pb-2 transition-colors ${activeTab === 'materials' ? 'border-b-2 border-primary text-primary font-black' : 'hover:text-slate-600'}`}
+        >
+          Material Alert Settings
+        </button>
+        <button 
+          type="button"
+          onClick={() => setActiveTab('general')}
+          className={`pb-2 transition-colors ${activeTab === 'general' ? 'border-b-2 border-primary text-primary font-black' : 'hover:text-slate-600'}`}
+        >
+          General & Channels
+        </button>
+        <button 
+          type="button"
+          onClick={() => setActiveTab('advanced')}
+          className={`pb-2 transition-colors ${activeTab === 'advanced' ? 'border-b-2 border-primary text-primary font-black' : 'hover:text-slate-600'}`}
+        >
+          Advanced Settings
+        </button>
+      </div>
+
       <form onSubmit={handleSaveSettings} className="space-y-6 max-w-2xl">
         
         {/* Success Notice */}
         {success && (
-          <div className="rounded-xl border border-green-150 bg-green-50 p-4 text-xs font-medium text-green-700 flex items-center gap-2">
+          <div className="rounded-xl border border-green-150 bg-green-50 p-4 text-xs font-medium text-green-700 flex items-center gap-2 animate-fade-in">
             <ShieldCheck className="h-4.5 w-4.5 text-green-500" />
             <span>Settings saved successfully. Threshold baselines updated in cost engine.</span>
           </div>
         )}
 
-        {/* Cost Limits Threshold Box */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="h-4.5 w-4.5 text-orange-500" />
-            <h4 className="text-xs font-bold text-slate-850">Alert & Warning Thresholds</h4>
+        {loading ? (
+          <div className="flex h-32 items-center justify-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
           </div>
-          
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-700 mb-1">Cement Low Stock Warning (Bags)</label>
-              <input 
-                type="number"
-                value={thresholds.cementLow}
-                onChange={e => setThresholds({ ...thresholds, cementLow: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-700 mb-1">Steel Low Stock Warning (Tons)</label>
-              <input 
-                type="number"
-                value={thresholds.steelLow}
-                onChange={e => setThresholds({ ...thresholds, steelLow: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-700 mb-1">Budget Allocation Warning Limit (%)</label>
-              <input 
-                type="number"
-                value={thresholds.budgetWarning}
-                onChange={e => setThresholds({ ...thresholds, budgetWarning: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-700 mb-1">Max Cost Overrun Flag Limit (%)</label>
-              <input 
-                type="number"
-                value={thresholds.costOverrunLimit}
-                onChange={e => setThresholds({ ...thresholds, costOverrunLimit: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
-              />
-            </div>
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* TAB 1: Material Alert Settings */}
+            {activeTab === 'materials' && (
+              <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+                  <AlertTriangle className="h-4.5 w-4.5 text-orange-500" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-850">Individual Material Thresholds</h4>
+                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Define custom low stock warning limits for each site material.</p>
+                  </div>
+                </div>
 
-        {/* Communication Channels */}
-        <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium">
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="h-4.5 w-4.5 text-blue-500" />
-            <h4 className="text-xs font-bold text-slate-850">Alert Delivery Channels</h4>
-          </div>
+                {materials.length === 0 ? (
+                  <p className="text-xs text-slate-400">No baseline materials available to configure alerts.</p>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {materials.map(mat => (
+                      <div key={mat.id}>
+                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
+                          {mat.name} Low Stock Threshold ({mat.unit})
+                        </label>
+                        <input 
+                          type="number"
+                          value={materialThresholds[mat.id] !== undefined ? materialThresholds[mat.id] : ''}
+                          onChange={e => handleMaterialThresholdChange(mat.id, e.target.value)}
+                          placeholder="e.g. 100"
+                          className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 text-xs font-semibold text-slate-700 cursor-pointer">
-              <input 
-                type="checkbox"
-                checked={notifyChannels.email}
-                onChange={e => setNotifyChannels({ ...notifyChannels, email: e.target.checked })}
-                className="rounded border-slate-350 text-primary h-4 w-4"
-              />
-              Email Alerts (Daily digests and urgent stockout alerts)
-            </label>
-            <label className="flex items-center gap-3 text-xs font-semibold text-slate-700 cursor-pointer">
-              <input 
-                type="checkbox"
-                checked={notifyChannels.sms}
-                onChange={e => setNotifyChannels({ ...notifyChannels, sms: e.target.checked })}
-                className="rounded border-slate-350 text-primary h-4 w-4"
-              />
-              SMS Notifications (Critical material delivery delays)
-            </label>
-            <label className="flex items-center gap-3 text-xs font-semibold text-slate-700 cursor-pointer">
-              <input 
-                type="checkbox"
-                checked={notifyChannels.system}
-                onChange={e => setNotifyChannels({ ...notifyChannels, system: e.target.checked })}
-                className="rounded border-slate-350 text-primary h-4 w-4"
-              />
-              In-App Notification Cards (Dashboard and Sidebar highlights)
-            </label>
-          </div>
-        </div>
+            {/* TAB 2: General & Channels */}
+            {activeTab === 'general' && (
+              <div className="space-y-6">
+                {/* General Alert & Warning Thresholds */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+                    <Sliders className="h-4.5 w-4.5 text-primary" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-850">Budget Alert & Warning Thresholds</h4>
+                      <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Configure system thresholds for budget overruns and warnings.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Budget Allocation Warning Limit (%)</label>
+                      <input 
+                        type="number"
+                        value={thresholds.budgetWarning}
+                        onChange={e => setThresholds({ ...thresholds, budgetWarning: e.target.value })}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-1">Max Cost Overrun Flag Limit (%)</label>
+                      <input 
+                        type="number"
+                        value={thresholds.costOverrunLimit}
+                        onChange={e => setThresholds({ ...thresholds, costOverrunLimit: e.target.value })}
+                        className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Communication Channels */}
+                <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+                    <Bell className="h-4.5 w-4.5 text-blue-500" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-850">Alert Delivery Channels</h4>
+                      <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Select preferred channels for receiving project notifications.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={notifyChannels.email}
+                        onChange={e => setNotifyChannels({ ...notifyChannels, email: e.target.checked })}
+                        className="rounded border-slate-350 text-primary h-4 w-4"
+                      />
+                      Email Alerts (Daily digests and urgent stockout alerts)
+                    </label>
+                    <label className="flex items-center gap-3 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={notifyChannels.sms}
+                        onChange={e => setNotifyChannels({ ...notifyChannels, sms: e.target.checked })}
+                        className="rounded border-slate-350 text-primary h-4 w-4"
+                      />
+                      MAIL Notifications (Critical material delivery delays)
+                    </label>
+                    <label className="flex items-center gap-3 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={notifyChannels.system}
+                        onChange={e => setNotifyChannels({ ...notifyChannels, system: e.target.checked })}
+                        className="rounded border-slate-350 text-primary h-4 w-4"
+                      />
+                      In-App Notification Cards (Dashboard and Sidebar highlights)
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Advanced Settings ("see more settings") */}
+            {activeTab === 'advanced' && (
+              <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+                  <Sliders className="h-4.5 w-4.5 text-indigo-500" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-850">Advanced Preferences</h4>
+                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Customize default metrics and automated audit report delivery rules.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Workspace Currency Display</label>
+                    <select
+                      value={advancedSettings.currency}
+                      onChange={e => setAdvancedSettings({ ...advancedSettings, currency: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                    >
+                      <option>INR (₹)</option>
+                      <option>USD ($)</option>
+                      <option>EUR (€)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Default Working Hours Goal</label>
+                    <input 
+                      type="number"
+                      step="0.5"
+                      value={advancedSettings.workHoursGoal}
+                      onChange={e => setAdvancedSettings({ ...advancedSettings, workHoursGoal: Number(e.target.value) })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Project Risk Alert Sensitivity</label>
+                    <select
+                      value={advancedSettings.sensitivity}
+                      onChange={e => setAdvancedSettings({ ...advancedSettings, sensitivity: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                    >
+                      <option>High</option>
+                      <option>Medium</option>
+                      <option>Low</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-2 pt-1">
+                    <label className="block text-[10px] font-bold text-slate-700 mb-0.5">Automated Report Subscriptions</label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={advancedSettings.autoDailySummary}
+                        onChange={e => setAdvancedSettings({ ...advancedSettings, autoDailySummary: e.target.checked })}
+                        className="rounded border-slate-300 text-primary h-3.5 w-3.5"
+                      />
+                      Daily Inventory Summary
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        checked={advancedSettings.autoWeeklyBudget}
+                        onChange={e => setAdvancedSettings({ ...advancedSettings, autoWeeklyBudget: e.target.checked })}
+                        className="rounded border-slate-300 text-primary h-3.5 w-3.5"
+                      />
+                      Weekly Budget Performance Reports
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Submit Actions */}
         <div className="flex justify-end pt-2">

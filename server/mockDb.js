@@ -549,7 +549,7 @@ export const mockDb = {
         list[idx].remaining = list[idx].purchased - list[idx].used;
         list[idx].actualCost = list[idx].purchased * list[idx].unitRate;
         list[idx].plannedCost = list[idx].planned * list[idx].unitRate;
-        if (list[idx].remaining < 200 && list[idx].remaining > 0) {
+        if (list[idx].remaining < (list[idx].lowStockThreshold || 200) && list[idx].remaining > 0) {
           list[idx].status = "Low Stock";
         } else if (list[idx].remaining === 0) {
           list[idx].status = "To Order";
@@ -723,7 +723,7 @@ export const mockDb = {
         mat.actualCost = mat.purchased * mat.unitRate;
         
         // Low Stock triggers
-        if (mat.remaining < 200 && mat.remaining > 0) {
+        if (mat.remaining < (mat.lowStockThreshold || 200) && mat.remaining > 0) {
           mat.status = "Low Stock";
           db.alerts[projectId].unshift({
             id: `a-${Date.now()}`,
@@ -814,7 +814,7 @@ export const mockDb = {
               mat.purchased += Number(req.quantity);
               mat.remaining = mat.purchased - mat.used;
               mat.actualCost = mat.purchased * mat.unitRate;
-              mat.status = mat.remaining < 200 ? "Low Stock" : "Optimal";
+              mat.status = mat.remaining < (mat.lowStockThreshold || 200) ? "Low Stock" : "Optimal";
             }
           }
         }
