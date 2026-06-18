@@ -28,7 +28,9 @@ export default function ProjectPlanning({ project, setProject }) {
   const [showAddPhase, setShowAddPhase] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showColFilterDropdown, setShowColFilterDropdown] = useState(false);
   const [hiddenMaterialIds, setHiddenMaterialIds] = useState([]);
+  const [hiddenColumnIds, setHiddenColumnIds] = useState([]);
 
   const toggleMaterialVisibility = (id) => {
     setHiddenMaterialIds(prev => 
@@ -44,6 +46,30 @@ export default function ProjectPlanning({ project, setProject }) {
     setHiddenMaterialIds(materials.map(m => m.id));
   };
 
+  const toggleColumnVisibility = (colId) => {
+    setHiddenColumnIds(prev =>
+      prev.includes(colId) ? prev.filter(id => id !== colId) : [...prev, colId]
+    );
+  };
+
+  const handleSelectAllColumns = () => {
+    setHiddenColumnIds([]);
+  };
+
+  const handleDeselectAllColumns = () => {
+    setHiddenColumnIds(allColumns.map(c => c.id));
+  };
+
+  const allColumns = [
+    { id: 'material', name: 'Material' },
+    { id: 'unit', name: 'Unit' },
+    ...phases.map(ph => ({ id: ph.id, name: `${ph.name} (Qty)` })),
+    { id: 'planned', name: 'Total Planned Qty' },
+    { id: 'rate', name: 'Unit Rate' },
+    { id: 'cost', name: 'Total Cost' },
+    { id: 'actions', name: 'Actions' }
+  ];
+
   useEffect(() => {
     const handleOutsideClick = (e) => {
       const btn = document.getElementById('filter-materials-btn');
@@ -58,6 +84,21 @@ export default function ProjectPlanning({ project, setProject }) {
       document.removeEventListener('click', handleOutsideClick);
     };
   }, [showFilterDropdown]);
+
+  useEffect(() => {
+    const handleColOutsideClick = (e) => {
+      const btn = document.getElementById('filter-columns-btn');
+      if (btn && !btn.contains(e.target)) {
+        setShowColFilterDropdown(false);
+      }
+    };
+    if (showColFilterDropdown) {
+      document.addEventListener('click', handleColOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('click', handleColOutsideClick);
+    };
+  }, [showColFilterDropdown]);
 
   const [newMat, setNewMat] = useState({
     name: '',
@@ -428,6 +469,14 @@ export default function ProjectPlanning({ project, setProject }) {
 
   const totalEstimatedCost = materials.reduce((sum, m) => sum + (m.planned * m.unitRate), 0);
   const displayedMaterials = materials.filter(m => !hiddenMaterialIds.includes(m.id));
+  
+  const visibleColumnsCount = 1 + (hiddenColumnIds.includes('material') ? 0 : 1)
+    + (hiddenColumnIds.includes('unit') ? 0 : 1)
+    + phases.filter(ph => !hiddenColumnIds.includes(ph.id)).length
+    + (hiddenColumnIds.includes('planned') ? 0 : 1)
+    + (hiddenColumnIds.includes('rate') ? 0 : 1)
+    + (hiddenColumnIds.includes('cost') ? 0 : 1)
+    + (hiddenColumnIds.includes('actions') ? 0 : 1);
 
   return (
     <div className="space-y-6">
@@ -679,6 +728,51 @@ export default function ProjectPlanning({ project, setProject }) {
               )}
             </div>
 
+            {/* Filter Columns Dropdown */}
+            <div className="relative">
+              <button
+                id="filter-columns-btn"
+                onClick={() => setShowColFilterDropdown(!showColFilterDropdown)}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-650 hover:bg-slate-50 shadow-premium transition-colors"
+              >
+                <Filter className="h-3.5 w-3.5 text-slate-400" />
+                <span>Filter Columns ({allColumns.length - hiddenColumnIds.length}/{allColumns.length})</span>
+              </button>
+
+              {showColFilterDropdown && (
+                <div className="absolute right-0 mt-1.5 z-40 w-56 rounded-xl border border-slate-150 bg-white p-3 shadow-dropdown flex flex-col gap-2 max-h-80 overflow-y-auto animate-fade-in">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    <span>Show/Hide Columns</span>
+                    <div className="flex gap-2 text-primary lowercase font-semibold">
+                      <button onClick={handleSelectAllColumns} className="hover:underline">All</button>
+                      <span className="text-slate-200">|</span>
+                      <button onClick={handleDeselectAllColumns} className="hover:underline">None</button>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1.5 overflow-y-auto max-h-60 pr-0.5">
+                    {allColumns.map(col => {
+                      const isVisible = !hiddenColumnIds.includes(col.id);
+                      return (
+                        <label 
+                          key={col.id}
+                          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-50 cursor-pointer text-xs font-semibold text-slate-700 transition-colors"
+                        >
+                          <input 
+                            type="checkbox"
+                            checked={isVisible}
+                            onChange={() => toggleColumnVisibility(col.id)}
+                            className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-primary focus:ring-0 cursor-pointer"
+                          />
+                          <span className="truncate">{col.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-50 shadow-premium transition-colors cursor-pointer">
               <Download className="h-3.5 w-3.5 text-slate-400" />
               <span>Import Excel/CSV</span>
@@ -705,31 +799,35 @@ export default function ProjectPlanning({ project, setProject }) {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                 <th className="py-2.5 px-4 font-bold text-[10px] uppercase w-12 text-center">#</th>
-                <th className="py-2.5 px-3 font-bold text-[10px] uppercase min-w-[150px]">Material</th>
-                <th className="py-2.5 px-3 font-bold text-[10px] uppercase w-20">Unit</th>
-                {phases.map((phase) => (
-                  <th key={phase.id} className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-28 max-w-[120px] truncate">
-                    {phase.name} (Qty)
-                  </th>
-                ))}
-                <th className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-36">Total Planned Qty</th>
-                <th className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-24">Unit Rate</th>
-                <th className="py-2.5 px-4 font-bold text-[10px] uppercase text-right w-36">Total Cost</th>
-                <th className="py-2.5 px-4 font-bold text-[10px] uppercase text-center w-20">Actions</th>
+                {!hiddenColumnIds.includes('material') && <th className="py-2.5 px-3 font-bold text-[10px] uppercase min-w-[150px]">Material</th>}
+                {!hiddenColumnIds.includes('unit') && <th className="py-2.5 px-3 font-bold text-[10px] uppercase w-20">Unit</th>}
+                {phases.map((phase) => {
+                  if (hiddenColumnIds.includes(phase.id)) return null;
+                  return (
+                    <th key={phase.id} className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-28 max-w-[120px] truncate">
+                      {phase.name} (Qty)
+                    </th>
+                  );
+                })}
+                {!hiddenColumnIds.includes('planned') && <th className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-36">Total Planned Qty</th>}
+                {!hiddenColumnIds.includes('rate') && <th className="py-2.5 px-3 font-bold text-[10px] uppercase text-right w-24">Unit Rate</th>}
+                {!hiddenColumnIds.includes('cost') && <th className="py-2.5 px-4 font-bold text-[10px] uppercase text-right w-36">Total Cost</th>}
+                {!hiddenColumnIds.includes('actions') && <th className="py-2.5 px-4 font-bold text-[10px] uppercase text-center w-20">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={7 + phases.length} className="py-8 text-center text-slate-400">Loading materials baseline matrix...</td>
+                  <td colSpan={visibleColumnsCount} className="py-8 text-center text-slate-400">Loading materials baseline matrix...</td>
                 </tr>
               ) : displayedMaterials.length > 0 ? (
                 displayedMaterials.map((mat, idx) => (
                   <tr key={mat.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-2 px-4 text-center font-bold text-slate-400">{idx + 1}</td>
-                    <td className="py-2 px-3 font-bold text-slate-800">{mat.name}</td>
-                    <td className="py-2 px-3 text-slate-500">{mat.unit}</td>
+                    {!hiddenColumnIds.includes('material') && <td className="py-2 px-3 font-bold text-slate-800">{mat.name}</td>}
+                    {!hiddenColumnIds.includes('unit') && <td className="py-2 px-3 text-slate-500">{mat.unit}</td>}
                     {phases.map((phase) => {
+                      if (hiddenColumnIds.includes(phase.id)) return null;
                       const phaseQty = mat[phase.id] !== undefined ? mat[phase.id] : 0;
                       return (
                         <td key={phase.id} className="py-2 px-3 text-right">
@@ -742,42 +840,50 @@ export default function ProjectPlanning({ project, setProject }) {
                         </td>
                       );
                     })}
-                    <td className="py-2 px-3 text-right">
-                      {phases.length > 0 ? (
-                        <span className="font-semibold text-slate-700">{Number(mat.planned || 0).toLocaleString()}</span>
-                      ) : (
+                    {!hiddenColumnIds.includes('planned') && (
+                      <td className="py-2 px-3 text-right">
+                        {phases.length > 0 ? (
+                          <span className="font-semibold text-slate-700">{Number(mat.planned || 0).toLocaleString()}</span>
+                        ) : (
+                          <input 
+                            type="number"
+                            value={mat.planned}
+                            onChange={(e) => handleUpdateMaterialTotalQty(mat.id, e.target.value)}
+                            className="w-16 rounded border border-slate-200 px-1 py-0.5 text-right text-xs focus:border-primary focus:outline-none"
+                          />
+                        )}
+                      </td>
+                    )}
+                    {!hiddenColumnIds.includes('rate') && (
+                      <td className="py-2 px-3 text-right">
                         <input 
                           type="number"
-                          value={mat.planned}
-                          onChange={(e) => handleUpdateMaterialTotalQty(mat.id, e.target.value)}
+                          defaultValue={mat.unitRate}
+                          onBlur={(e) => handleUpdateMaterialRate(mat.id, e.target.value)}
                           className="w-16 rounded border border-slate-200 px-1 py-0.5 text-right text-xs focus:border-primary focus:outline-none"
                         />
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-right">
-                      <input 
-                        type="number"
-                        defaultValue={mat.unitRate}
-                        onBlur={(e) => handleUpdateMaterialRate(mat.id, e.target.value)}
-                        className="w-16 rounded border border-slate-200 px-1 py-0.5 text-right text-xs focus:border-primary focus:outline-none"
-                      />
-                    </td>
-                    <td className="py-2 px-4 text-right font-bold text-slate-800">
-                      {formatRupees(mat.planned * mat.unitRate)}
-                    </td>
-                    <td className="py-2 px-4 text-center">
-                      <button 
-                        onClick={() => handleDeleteMaterial(mat.id)}
-                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
+                      </td>
+                    )}
+                    {!hiddenColumnIds.includes('cost') && (
+                      <td className="py-2 px-4 text-right font-bold text-slate-800">
+                        {formatRupees(mat.planned * mat.unitRate)}
+                      </td>
+                    )}
+                    {!hiddenColumnIds.includes('actions') && (
+                      <td className="py-2 px-4 text-center">
+                        <button 
+                          onClick={() => handleDeleteMaterial(mat.id)}
+                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7 + phases.length} className="py-8 text-center text-slate-400">
+                  <td colSpan={visibleColumnsCount} className="py-8 text-center text-slate-400">
                     {materials.length > 0 ? "All materials hidden by filter." : "No baseline materials configured yet."}
                   </td>
                 </tr>
@@ -787,9 +893,27 @@ export default function ProjectPlanning({ project, setProject }) {
             {!loading && materials.length > 0 && (
               <tfoot>
                 <tr className="bg-slate-50/50 border-t-2 border-slate-200 font-bold text-slate-800">
-                  <td colSpan={5 + phases.length} className="py-3 px-4 text-left font-extrabold text-[10px] uppercase text-slate-400 tracking-wider">Total Estimated Baseline Cost</td>
-                  <td className="py-3 px-4 text-right font-black text-primary text-sm">{formatRupees(totalEstimatedCost)}</td>
-                  <td></td>
+                  {!hiddenColumnIds.includes('cost') ? (
+                    <>
+                      <td 
+                        colSpan={visibleColumnsCount - (hiddenColumnIds.includes('actions') ? 1 : 2)} 
+                        className="py-3 px-4 text-left font-extrabold text-[10px] uppercase text-slate-400 tracking-wider"
+                      >
+                        Total Estimated Baseline Cost
+                      </td>
+                      <td className="py-3 px-4 text-right font-black text-primary text-sm">
+                        {formatRupees(totalEstimatedCost)}
+                      </td>
+                      {!hiddenColumnIds.includes('actions') && <td></td>}
+                    </>
+                  ) : (
+                    <td 
+                      colSpan={visibleColumnsCount} 
+                      className="py-3 px-4 text-right font-extrabold text-slate-850"
+                    >
+                      Total Estimated Baseline Cost: <span className="font-black text-primary text-sm ml-2">{formatRupees(totalEstimatedCost)}</span>
+                    </td>
+                  )}
                 </tr>
               </tfoot>
             )}
