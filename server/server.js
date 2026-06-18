@@ -99,6 +99,20 @@ app.post('/api/projects/:id/phases', (req, res) => {
   res.status(201).json(phase);
 });
 
+// Route: Update a project phase
+app.put('/api/projects/:id/phases/:phaseId', (req, res) => {
+  const phase = mockDb.updateProjectPhase(req.params.id, req.params.phaseId, req.body);
+  if (!phase) return res.status(404).json({ message: "Project or Phase not found" });
+  res.json(phase);
+});
+
+// Route: Delete a project phase
+app.delete('/api/projects/:id/phases/:phaseId', (req, res) => {
+  const deleted = mockDb.deleteProjectPhase(req.params.id, req.params.phaseId);
+  if (!deleted) return res.status(404).json({ message: "Project or Phase not found" });
+  res.json(deleted);
+});
+
 // Route: Get project budget
 app.get('/api/projects/:id/budget', (req, res) => {
   const budget = mockDb.getBudget(req.params.id);

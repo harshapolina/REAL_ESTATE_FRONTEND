@@ -461,6 +461,32 @@ export const mockDb = {
     }
     return null;
   },
+  updateProjectPhase: (projectId, phaseId, updates) => {
+    loadDb();
+    const proj = db.projects.find(p => p.id === projectId);
+    if (proj && proj.phases) {
+      const idx = proj.phases.findIndex(ph => ph.id === phaseId);
+      if (idx !== -1) {
+        proj.phases[idx] = { ...proj.phases[idx], ...updates };
+        saveDb();
+        return proj.phases[idx];
+      }
+    }
+    return null;
+  },
+  deleteProjectPhase: (projectId, phaseId) => {
+    loadDb();
+    const proj = db.projects.find(p => p.id === projectId);
+    if (proj && proj.phases) {
+      const idx = proj.phases.findIndex(ph => ph.id === phaseId);
+      if (idx !== -1) {
+        const deleted = proj.phases.splice(idx, 1);
+        saveDb();
+        return deleted[0];
+      }
+    }
+    return null;
+  },
 
   // Budgets
   getBudget: (projectId) => {

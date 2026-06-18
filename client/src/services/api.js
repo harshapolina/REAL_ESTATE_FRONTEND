@@ -69,6 +69,23 @@ export const api = {
     return handleResponse(res);
   },
 
+  updateProjectPhase: async (projectId, phaseId, phaseData) => {
+    const res = await fetch(`${BASE_URL}/projects/${projectId}/phases/${phaseId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(phaseData)
+    });
+    return handleResponse(res);
+  },
+
+  deleteProjectPhase: async (projectId, phaseId) => {
+    const res = await fetch(`${BASE_URL}/projects/${projectId}/phases/${phaseId}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
   // Budget
   getBudget: async (projectId) => {
     const res = await fetch(`${BASE_URL}/projects/${projectId}/budget`, { headers: getHeaders() });

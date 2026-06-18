@@ -47,6 +47,22 @@ export default function Layout({ children, project, setProject }) {
     }
   }, [project?.id]);
 
+  useEffect(() => {
+    const handleDocumentClick = (e) => {
+      const btn = document.getElementById('notifications-btn');
+      const dropdown = document.getElementById('notifications-dropdown');
+      if (
+        showNotifications &&
+        btn && !btn.contains(e.target) &&
+        dropdown && !dropdown.contains(e.target)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => document.removeEventListener('mousedown', handleDocumentClick);
+  }, [showNotifications]);
+
   const handleLogout = () => {
     api.logout();
     navigate('/login');
@@ -196,6 +212,7 @@ export default function Layout({ children, project, setProject }) {
           <div className="flex items-center gap-4">
             <div className="relative">
               <button 
+                id="notifications-btn"
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors shadow-premium"
               >
@@ -206,7 +223,7 @@ export default function Layout({ children, project, setProject }) {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 z-50 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-dropdown">
+                <div id="notifications-dropdown" className="absolute right-0 mt-2 z-50 w-80 rounded-xl border border-slate-200 bg-white p-2 shadow-dropdown">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2 px-3 pt-1">
                     <h4 className="text-xs font-bold text-slate-800">Notifications</h4>
                     <span className="rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-500">

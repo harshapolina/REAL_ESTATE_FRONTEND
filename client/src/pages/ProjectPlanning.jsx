@@ -43,6 +43,16 @@ export default function ProjectPlanning({ project, setProject }) {
     status: 'Upcoming'
   });
 
+  const [showEditPhase, setShowEditPhase] = useState(false);
+  const [editPhaseData, setEditPhaseData] = useState({
+    id: '',
+    name: '',
+    targetArea: '',
+    duration: '',
+    budget: '',
+    status: 'Upcoming'
+  });
+
   useEffect(() => {
     setDetails({ ...project });
     setPhases(project.phases || []);
@@ -75,6 +85,58 @@ export default function ProjectPlanning({ project, setProject }) {
       }
     } catch (err) {
       console.error("Error adding project phase:", err);
+    }
+  };
+
+  const handleEditPhase = async (e) => {
+    e.preventDefault();
+    if (!editPhaseData.name || !editPhaseData.targetArea || !editPhaseData.duration || !editPhaseData.budget) return;
+
+    try {
+      const updated = await api.updateProjectPhase(project.id, editPhaseData.id, {
+        name: editPhaseData.name,
+        targetArea: editPhaseData.targetArea,
+        duration: editPhaseData.duration,
+        budget: Number(editPhaseData.budget),
+        status: editPhaseData.status
+      });
+      if (updated) {
+        setPhases(phases.map(p => p.id === editPhaseData.id ? updated : p));
+        setShowEditPhase(false);
+        if (setProject) {
+          const updatedProj = await api.getProjectById(project.id);
+          setProject(updatedProj);
+        }
+      }
+    } catch (err) {
+      console.error("Error updating project phase:", err);
+    }
+  };
+
+  const handleStartEditPhase = (ph) => {
+    setEditPhaseData({
+      id: ph.id,
+      name: ph.name,
+      targetArea: ph.targetArea,
+      duration: ph.duration,
+      budget: ph.budget,
+      status: ph.status || 'Upcoming'
+    });
+    setShowEditPhase(true);
+  };
+
+  const handleDeletePhase = async (phaseId) => {
+    if (!window.confirm("Are you sure you want to delete this project phase?")) return;
+
+    try {
+      await api.deleteProjectPhase(project.id, phaseId);
+      setPhases(phases.filter(p => p.id !== phaseId));
+      if (setProject) {
+        const updatedProj = await api.getProjectById(project.id);
+        setProject(updatedProj);
+      }
+    } catch (err) {
+      console.error("Error deleting project phase:", err);
     }
   };
 
@@ -483,11 +545,27 @@ export default function ProjectPlanning({ project, setProject }) {
               <div key={ph.id || idx} className="rounded-xl border border-slate-200/80 p-4 relative bg-slate-50/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-bold text-slate-400">Phase {idx + 1}</span>
-                  <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold ${
-                    ph.status === 'Active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    {ph.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleStartEditPhase(ph)}
+                      className="text-slate-400 hover:text-primary transition-colors p-0.5 rounded hover:bg-slate-105"
+                      title="Edit Phase"
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeletePhase(ph.id)}
+                      className="text-slate-400 hover:text-red-500 transition-colors p-0.5 rounded hover:bg-slate-105"
+                      title="Delete Phase"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold ${
+                      ph.status === 'Active' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {ph.status}
+                    </span>
+                  </div>
                 </div>
                 <h5 className="mt-2 text-xs font-bold text-slate-700">{ph.name}</h5>
                 <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-[10px] font-semibold text-slate-500">
@@ -830,6 +908,95 @@ export default function ProjectPlanning({ project, setProject }) {
                   className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
                 >
                   Add Phase
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Phase Modal */}
+      {showEditPhase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-xl border border-slate-100 bg-white p-6 shadow-dropdown">
+            <h3 className="text-sm font-bold text-slate-800">Edit Project Phase</h3>
+            
+            <form onSubmit={handleEditPhase} className="mt-4 space-y-3.5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 mb-1">Phase Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editPhaseData.name}
+                  onChange={e => setEditPhaseData({...editPhaseData, name: e.target.value})}
+                  placeholder="e.g. Foundation & Columns"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 mb-1">Target Area</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editPhaseData.targetArea}
+                  onChange={e => setEditPhaseData({...editPhaseData, targetArea: e.target.value})}
+                  placeholder="e.g. 20,000 SFT"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Duration</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editPhaseData.duration}
+                    onChange={e => setEditPhaseData({...editPhaseData, duration: e.target.value})}
+                    placeholder="e.g. 01 May - 30 Jun"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1">Budget (₹)</label>
+                  <input 
+                    type="number" 
+                    required
+                    value={editPhaseData.budget}
+                    onChange={e => setEditPhaseData({...editPhaseData, budget: e.target.value})}
+                    placeholder="e.g. 12000000"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 mb-1">Status</label>
+                <select
+                  value={editPhaseData.status}
+                  onChange={e => setEditPhaseData({...editPhaseData, status: e.target.value})}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none"
+                >
+                  <option>Active</option>
+                  <option>Upcoming</option>
+                  <option>Completed</option>
+                </select>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 pt-2">
+                <button 
+                  type="button"
+                  onClick={() => setShowEditPhase(false)}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="rounded-lg bg-primary px-4 py-1.5 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
