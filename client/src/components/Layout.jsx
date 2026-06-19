@@ -102,26 +102,41 @@ export default function Layout({ children, project, setProject }) {
 
         {/* Main Navigation Links */}
         <nav className="flex-1 space-y-[2px] overflow-y-auto px-3 py-1">
-          {navItems.map((item) => {
-            const itemPath = `/project/${project?.id}/${item.path}`;
-            const isActive = location.pathname.startsWith(itemPath) || (item.path === 'overview' && location.pathname.endsWith(`/project/${project?.id}`));
-            const Icon = item.icon;
+          {['Platform Owner', 'Super Admin', 'Manager'].includes(user.role) && (
+            <Link
+              to="/admin"
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition-colors mb-2 ${
+                location.pathname === '/admin' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+              }`}
+            >
+              <Users className={`h-4.5 w-4.5 ${location.pathname === '/admin' ? 'text-indigo-600' : 'text-slate-400'}`} />
+              Admin Console
+            </Link>
+          )}
+          {navItems
+            .filter(item => !['Site Manager', 'Employee'].includes(user.role) || item.path === 'daily-tracking')
+            .map((item) => {
+              const itemPath = `/project/${project?.id}/${item.path}`;
+              const isActive = location.pathname.startsWith(itemPath) || (item.path === 'overview' && location.pathname.endsWith(`/project/${project?.id}`));
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.name}
-                to={itemPath}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                  isActive 
-                    ? 'bg-primary-light text-primary' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
-                {item.name}
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.name}
+                  to={itemPath}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                    isActive 
+                      ? 'bg-primary-light text-primary' 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
+                  {item.name}
+                </Link>
+              );
+            })}
         </nav>
 
         {/* Help Panel */}
@@ -315,27 +330,43 @@ export default function Layout({ children, project, setProject }) {
 
         {/* Main Navigation Links */}
         <nav className="flex-1 space-y-[2px] overflow-y-auto px-3 py-4">
-          {navItems.map((item) => {
-            const itemPath = `/project/${project?.id}/${item.path}`;
-            const isActive = location.pathname.startsWith(itemPath) || (item.path === 'overview' && location.pathname.endsWith(`/project/${project?.id}`));
-            const Icon = item.icon;
+          {['Platform Owner', 'Super Admin', 'Manager'].includes(user.role) && (
+            <Link
+              to="/admin"
+              onClick={() => setSidebarOpen(false)}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-bold transition-colors mb-2 ${
+                location.pathname === '/admin' 
+                  ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' 
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+              }`}
+            >
+              <Users className={`h-4.5 w-4.5 ${location.pathname === '/admin' ? 'text-indigo-600' : 'text-slate-400'}`} />
+              Admin Console
+            </Link>
+          )}
+          {navItems
+            .filter(item => !['Site Manager', 'Employee'].includes(user.role) || item.path === 'daily-tracking')
+            .map((item) => {
+              const itemPath = `/project/${project?.id}/${item.path}`;
+              const isActive = location.pathname.startsWith(itemPath) || (item.path === 'overview' && location.pathname.endsWith(`/project/${project?.id}`));
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.name}
-                to={itemPath}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-                  isActive 
-                    ? 'bg-primary-light text-primary' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
-                {item.name}
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.name}
+                  to={itemPath}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                    isActive 
+                      ? 'bg-primary-light text-primary' 
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
+                  {item.name}
+                </Link>
+              );
+            })}
         </nav>
 
         {/* User profile footer widget */}

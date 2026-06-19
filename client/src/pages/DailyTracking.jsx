@@ -26,6 +26,7 @@ import { formatRupees } from './Dashboard';
 
 export default function DailyTracking({ project }) {
   const [logs, setLogs] = useState([]);
+  const user = api.getCurrentUser();
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [alerts, setAlerts] = useState([]);
@@ -193,13 +194,15 @@ export default function DailyTracking({ project }) {
           <h2 className="text-base font-extrabold text-slate-800">Daily Tracking</h2>
           <p className="text-[10px] text-slate-400 font-medium">Record site operations and daily material consumption logs.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Daily Entry</span>
-        </button>
+        {user?.role !== 'Employee' && (
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Daily Entry</span>
+          </button>
+        )}
       </div>
 
       {/* Top operational metrics */}

@@ -1,7 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const getHeaders = () => {
-  const token = localStorage.getItem('buildtrack_token');
+  const token = sessionStorage.getItem('buildtrack_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -25,18 +25,18 @@ export const api = {
       body: JSON.stringify({ email, password })
     });
     const data = await handleResponse(res);
-    localStorage.setItem('buildtrack_token', data.token);
-    localStorage.setItem('buildtrack_user', JSON.stringify(data.user));
+    sessionStorage.setItem('buildtrack_token', data.token);
+    sessionStorage.setItem('buildtrack_user', JSON.stringify(data.user));
     return data;
   },
 
   logout: () => {
-    localStorage.removeItem('buildtrack_token');
-    localStorage.removeItem('buildtrack_user');
+    sessionStorage.removeItem('buildtrack_token');
+    sessionStorage.removeItem('buildtrack_user');
   },
 
   getCurrentUser: () => {
-    const user = localStorage.getItem('buildtrack_user');
+    const user = sessionStorage.getItem('buildtrack_user');
     return user ? JSON.parse(user) : null;
   },
 
