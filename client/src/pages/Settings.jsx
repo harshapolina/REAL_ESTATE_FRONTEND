@@ -2,11 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, AlertTriangle, ShieldCheck, Mail, Bell, Shield, Sliders, Info, Clock, CheckSquare, Layers } from 'lucide-react';
 import { api } from '../services/api';
 
-export default function SettingsPage({ project }) {
+export default function SettingsPage({ project, setProject }) {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('materials'); // 'materials' | 'general' | 'advanced'
+  const [activeTab, setActiveTab] = useState('project'); // 'project' | 'materials' | 'general' | 'advanced'
+  const [error, setError] = useState('');
   
+  const [projectDetails, setProjectDetails] = useState({
+    name: project?.name || '',
+    location: project?.location || '',
+    budget: project?.budget || 0,
+    area: project?.area || 0,
+    duration: project?.duration || '',
+    startDate: project?.startDate || '',
+    endDate: project?.endDate || '',
+    status: project?.status || 'Planning'
+  });
+
   const [thresholds, setThresholds] = useState({
     budgetWarning: 90,
     costOverrunLimit: 10
@@ -31,6 +43,23 @@ export default function SettingsPage({ project }) {
   });
 
   const [success, setSuccess] = useState(false);
+  const currentUser = api.getCurrentUser();
+  const canEditProject = ['Platform Owner', 'Super Admin'].includes(currentUser?.role);
+
+  useEffect(() => {
+    if (project) {
+      setProjectDetails({
+        name: project.name || '',
+        location: project.location || '',
+        budget: project.budget || 0,
+        area: project.area || 0,
+        duration: project.duration || '',
+        startDate: project.startDate || '',
+        endDate: project.endDate || '',
+        status: project.status || 'Planning'
+      });
+    }
+  }, [project]);
 
   useEffect(() => {
     const fetchMaterials = async () => {
@@ -56,23 +85,39 @@ export default function SettingsPage({ project }) {
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
+    setError('');
+    setSuccess(false);
     try {
-      // 1. Update all materials thresholds in backend
-      await Promise.all(
-        materials.map(mat => {
-          const customVal = materialThresholds[mat.id];
-          return api.updateMaterial(project.id, mat.id, {
-            lowStockThreshold: Number(customVal) || 0
-          });
-        })
-      );
+      if (activeTab === 'project') {
+        if (!canEditProject) {
+          setError("Access Denied: Only Super Admins and Platform Owners can edit project details.");
+          return;
+        }
+        const updated = await api.updateProject(project.id, {
+          ...projectDetails,
+          budget: Number(projectDetails.budget),
+          area: Number(projectDetails.area)
+        });
+        if (setProject) {
+          setProject(updated);
+        }
+      } else {
+        // 1. Update all materials thresholds in backend
+        await Promise.all(
+          materials.map(mat => {
+            const customVal = materialThresholds[mat.id];
+            return api.updateMaterial(project.id, mat.id, {
+              lowStockThreshold: Number(customVal) || 0
+            });
+          })
+        );
+      }
       
-      // 2. Persist local configurations simulation
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      console.error("Error saving thresholds:", err);
-      alert("Error saving some material thresholds.");
+      console.error("Error saving settings:", err);
+      setError(err.message || "Error saving configuration settings.");
     }
   };
 
@@ -94,6 +139,13 @@ export default function SettingsPage({ project }) {
 
       {/* Tabs Menu */}
       <div className="flex border-b border-slate-200 text-xs font-bold text-slate-400 gap-6">
+        <button 
+          type="button"
+          onClick={() => setActiveTab('project')}
+          className={`pb-2 transition-colors ${activeTab === 'project' ? 'border-b-2 border-primary text-primary font-black' : 'hover:text-slate-600'}`}
+        >
+          Project Details
+        </button>
         <button 
           type="button"
           onClick={() => setActiveTab('materials')}
@@ -127,12 +179,131 @@ export default function SettingsPage({ project }) {
           </div>
         )}
 
+        {/* Error Notice */}
+        {error && (
+          <div className="rounded-xl border border-red-150 bg-red-50 p-4 text-xs font-medium text-red-700 flex items-center gap-2 animate-fade-in">
+            <AlertTriangle className="h-4.5 w-4.5 text-red-500" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex h-32 items-center justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
           </div>
         ) : (
           <>
+            {/* TAB 0: Project Details */}
+            {activeTab === 'project' && (
+              <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+                  <Sliders className="h-4.5 w-4.5 text-primary" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-850">Core Project Specifications</h4>
+                    <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Manage project scope, budget allocation, and duration baselines.</p>
+                  </div>
+                </div>
+
+                {!canEditProject && (
+                  <div className="rounded-xl border border-amber-150 bg-amber-50 p-3 text-[10px] font-medium text-amber-700 flex items-center gap-2">
+                    <Info className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                    <span>View-only mode: Only Super Admins and Platform Owners can edit project specifications.</span>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Project Name *</label>
+                    <input 
+                      type="text"
+                      required
+                      disabled={!canEditProject}
+                      value={projectDetails.name}
+                      onChange={e => setProjectDetails({ ...projectDetails, name: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-450"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Location *</label>
+                    <input 
+                      type="text"
+                      required
+                      disabled={!canEditProject}
+                      value={projectDetails.location}
+                      onChange={e => setProjectDetails({ ...projectDetails, location: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-450"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Total Budget (INR ₹) *</label>
+                    <input 
+                      type="number"
+                      required
+                      disabled={!canEditProject}
+                      value={projectDetails.budget}
+                      onChange={e => setProjectDetails({ ...projectDetails, budget: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-450"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Built-up Area (Sq Ft)</label>
+                    <input 
+                      type="number"
+                      disabled={!canEditProject}
+                      value={projectDetails.area}
+                      onChange={e => setProjectDetails({ ...projectDetails, area: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-450"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Estimated Duration</label>
+                    <input 
+                      type="text"
+                      disabled={!canEditProject}
+                      value={projectDetails.duration}
+                      onChange={e => setProjectDetails({ ...projectDetails, duration: e.target.value })}
+                      placeholder="e.g. 12 Months"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50 disabled:text-slate-450"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Project Status</label>
+                    <select
+                      disabled={!canEditProject}
+                      value={projectDetails.status}
+                      onChange={e => setProjectDetails({ ...projectDetails, status: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50"
+                    >
+                      <option value="Planning">Planning</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="On Hold">On Hold</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">Start Date</label>
+                    <input 
+                      type="date"
+                      disabled={!canEditProject}
+                      value={projectDetails.startDate}
+                      onChange={e => setProjectDetails({ ...projectDetails, startDate: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-700 mb-1">End Date</label>
+                    <input 
+                      type="date"
+                      disabled={!canEditProject}
+                      value={projectDetails.endDate}
+                      onChange={e => setProjectDetails({ ...projectDetails, endDate: e.target.value })}
+                      className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-800 focus:border-primary focus:outline-none disabled:bg-slate-50"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* TAB 1: Material Alert Settings */}
             {activeTab === 'materials' && (
               <div className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-premium space-y-4">
@@ -322,7 +493,8 @@ export default function SettingsPage({ project }) {
         <div className="flex justify-end pt-2">
           <button 
             type="submit"
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors"
+            disabled={activeTab === 'project' && !canEditProject}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-hover shadow-premium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-4 w-4" />
             <span>Save Configuration</span>

@@ -370,6 +370,20 @@ app.get('/api/projects/:id', authenticateToken, authorizeProjectAccess, async (r
   }
 });
 
+// Route: Update project details
+app.put('/api/projects/:id', authenticateToken, authorizeProjectAccess, async (req, res) => {
+  try {
+    if (req.user.role !== 'Platform Owner' && req.user.role !== 'Super Admin') {
+      return res.status(403).json({ message: "Access Denied: Only Platform Owners and Super Admins can update project details." });
+    }
+    const updated = await mockDb.updateProject(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ message: "Project not found" });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Route: Add a project phase
 app.post('/api/projects/:id/phases', authenticateToken, authorizeProjectAccess, async (req, res) => {
   try {

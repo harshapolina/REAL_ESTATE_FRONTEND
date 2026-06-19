@@ -133,7 +133,7 @@ function WorkspaceWrapper() {
         <Route path="procurement" element={<Procurement project={project} />} />
         <Route path="reports" element={<Reports project={project} />} />
         <Route path="team" element={<TeamRoles project={project} />} />
-        <Route path="settings" element={<Settings project={project} />} />
+        <Route path="settings" element={<Settings project={project} setProject={setProject} />} />
         <Route path="*" element={<Navigate to="overview" replace />} />
       </Routes>
     </Layout>
